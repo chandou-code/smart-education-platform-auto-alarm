@@ -329,7 +329,12 @@ class CourseAlarmGUI:
         """触发闹钟生成 - 在主线程执行"""
         if self.app_exit:
             return
-            
+        
+        # 先弹出窗口，让用户能看到过程
+        self.status_root.deiconify()
+        self.status_root.lift()
+        self.status_root.focus_force()
+        
         self.status_window.update_status("运行中...")
         self.status_window.add_log("开始生成闹钟...")
         
@@ -354,28 +359,23 @@ class CourseAlarmGUI:
             else:
                 self.status_window.add_log("警告: 未找到 Edge 浏览器窗口")
             
-            # ====== 第二步：点击 ======
-            self.status_window.add_log(f"点击位置: ({cfg.click_x}, {cfg.click_y})")
-            self.screenshotter.click(cfg.click_x, cfg.click_y)
-            time.sleep(0.3)
-            
-            # ====== 第三步：触发进度条 ======
+            # ====== 第二步：触发进度条 ======
             self.status_window.add_log("触发进度条...")
             self.screenshotter.trigger_progress_bar(cfg.start_x, cfg.start_y)
             
-            # ====== 第四步：截图 ======
+            # ====== 第三步：截图 ======
             self.status_window.add_log("截图中...")
             screenshot = self.screenshotter.capture_rectangle(
                 cfg.start_x, cfg.start_y,
                 cfg.end_x, cfg.end_y
             )
             
-            # ====== 第五步：OCR识别 ======
+            # ====== 第四步：OCR识别 ======
             self.status_window.add_log("OCR识别中...")
             time_text = self.ocr_engine.recognize(screenshot)
             self.status_window.add_log(f"识别结果: {time_text}")
             
-            # ====== 第六步：解析时长 ======
+            # ====== 第五步：解析时长 ======
             duration_minutes = self.ocr_engine.parse_time(time_text)
             
             if duration_minutes:
@@ -396,6 +396,10 @@ class CourseAlarmGUI:
             self.status_window.add_log(traceback.format_exc())
         
         self.status_window.update_status("就绪")
+        
+        # 确保窗口在最前面
+        self.status_root.lift()
+        self.status_root.focus_force()
     
     def quit_safe(self):
         """安全的退出 - 先检查再调度到主线程"""

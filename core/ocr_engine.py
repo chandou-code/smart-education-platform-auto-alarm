@@ -90,9 +90,11 @@ class OCREngine:
         支持格式：
         - "12:53" -> 12分53秒
         - "12.53" -> 12分53秒
+        - "12-53" -> 12分53秒
         - "1253" -> 12分53秒
         - "1:23:45" -> 1小时23分45秒
         - "1.23.45" -> 1小时23分45秒
+        - "1-23-45" -> 1小时23分45秒
         - "12345" -> 1小时23分45秒
         
         Args:
@@ -103,21 +105,26 @@ class OCREngine:
         """
         time_str = time_str.strip()
         
-        # 1. 先匹配带分隔符的格式（冒号或点）
-        # 支持格式: MM:SS, MM.SS, HH:MM:SS, HH.MM.SS
-        pattern_sep = r'(\d+)(?:[:.])(\d+)(?:(?:[:.])(\d+))?'
-        match = re.search(pattern_sep, time_str)
+        # 预处理：移除常见干扰字符
+        clean_str = time_str
+        for char in ['|', '/', '\\', '*', '#', '@', '$', '%', '!', '?', ' ']:
+            clean_str = clean_str.replace(char, '')
+        
+        # 1. 先匹配带分隔符的格式（冒号、点、减号）
+        # 支持格式: MM:SS, MM.SS, MM-SS, HH:MM:SS, HH.MM.SS, HH-MM-SS
+        pattern_sep = r'(\d+)(?:[:.\-])(\d+)(?:(?:[:.\-])(\d+))?'
+        match = re.search(pattern_sep, clean_str)
         
         if match:
             groups = match.groups()
             if groups[2] is not None:
-                # HH:MM:SS 或 HH.MM.SS 格式
+                # HH:MM:SS 或 HH.MM.SS 或 HH-MM-SS 格式
                 hours = int(groups[0])
                 minutes = int(groups[1])
                 seconds = int(groups[2])
                 total_minutes = hours * 60 + minutes + seconds / 60
             else:
-                # MM:SS 或 MM.SS 格式
+                # MM:SS 或 MM.SS 或 MM-SS 格式
                 minutes = int(groups[0])
                 seconds = int(groups[1])
                 total_minutes = minutes + seconds / 60
@@ -125,8 +132,8 @@ class OCREngine:
             return total_minutes
         
         # 2. 匹配纯数字的格式
-        digits = re.findall(r'\d', time_str)
-        if len(digits) >= 4:
+        digits = re.findall(r'\d', clean_str)
+        if len(digits) >= 3:
             num_str = ''.join(digits)
             
             # 优先尝试 4位或5位数字，可能是 MMSS 或 HHMMSS
@@ -152,6 +159,15 @@ class OCREngine:
                 minutes = int(num_str[0])
                 seconds = int(num_str[1:3])
                 return minutes + seconds / 60
+        
+        # 3. 尝试匹配单个数字加分隔符的格式（如 "7-50"）
+        # 这种格式可能被前面的正则漏掉
+        simple_pattern = r'(\d+)[-.](\d{2})'
+        simple_match = re.search(simple_pattern, clean_str)
+        if simple_match:
+            minutes = int(simple_match.group(1))
+            seconds = int(simple_match.group(2))
+            return minutes + seconds / 60
         
         return None
     
